@@ -55,27 +55,49 @@ def fetch_filtered_data(genre, title, overview, production_company, filter_adult
         st.error(f"Error al ejecutar la consulta: {e}")
         return pd.DataFrame()
 
-# =================== Control de Navegación ===================
+# =================== Inicialización del Estado ===================
 if "page" not in st.session_state:
     st.session_state.page = "home"
 if "selected_movie" not in st.session_state:
     st.session_state.selected_movie = None
+if "search_filters" not in st.session_state:
+    st.session_state.search_filters = {
+        "genre": "",
+        "title": "",
+        "overview": "",
+        "production_company": "",
+        "filter_adults": False,
+    }
 
+# =================== Función de Navegación ===================
 def navigate(page, movie=None):
     st.session_state.page = page
-    st.session_state.selected_movie = movie
+    if movie:
+        st.session_state.selected_movie = movie
 
 # =================== Página Principal ===================
 if st.session_state.page == "home":
-    genre_input = st.text_input("Introduce el Género:")
-    title_input = st.text_input("Introduce el Título:")
-    overview_input = st.text_input("Introduce la Sinopsis/Resumen:")
-    production_company_input = st.text_input("Introduce la Productora:")
-    filter_adults = st.checkbox("Incluir contenido para adultos")
+    st.markdown("### Búsqueda de Películas")
+
+    # Recuperar los filtros de búsqueda del estado
+    genre_input = st.text_input("Introduce el Género:", value=st.session_state.search_filters["genre"])
+    title_input = st.text_input("Introduce el Título:", value=st.session_state.search_filters["title"])
+    overview_input = st.text_input("Introduce la Sinopsis/Resumen:", value=st.session_state.search_filters["overview"])
+    production_company_input = st.text_input("Introduce la Productora:", value=st.session_state.search_filters["production_company"])
+    filter_adults = st.checkbox("Incluir contenido para adultos", value=st.session_state.search_filters["filter_adults"])
 
     # Botón para activar la búsqueda
     if st.button("Buscar"):
-        # Ejecutar la consulta SQL solo cuando se presione el botón
+        # Guardar los filtros de búsqueda en el estado
+        st.session_state.search_filters = {
+            "genre": genre_input,
+            "title": title_input,
+            "overview": overview_input,
+            "production_company": production_company_input,
+            "filter_adults": filter_adults,
+        }
+
+        # Ejecutar la consulta SQL
         df = fetch_filtered_data(genre_input, title_input, overview_input, production_company_input, filter_adults)
 
         # Mostrar los resultados
