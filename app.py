@@ -38,8 +38,8 @@ def fetch_data(query):
         return pd.DataFrame()
 
 @st.cache_data
-def filter_top_movies(df, genre, title, overview, company):
-    """Filtra y ordena las 10 mejores películas según el género, título, overview y compañía de producción"""
+def filter_top_movies(df, genre, title, overview, adult_content):
+    """Filtra y ordena las 10 mejores películas según el género, título, overview y contenido para adultos"""
     filtered_movies = df.copy()
 
     if genre:
@@ -48,8 +48,10 @@ def filter_top_movies(df, genre, title, overview, company):
         filtered_movies = filtered_movies[filtered_movies['title'].str.contains(title, case=False, na=False)]
     if overview:
         filtered_movies = filtered_movies[filtered_movies['overview'].str.contains(overview, case=False, na=False)]
-    if company:
-        filtered_movies = filtered_movies[filtered_movies['production_companies'].str.contains(company, case=False, na=False)]
+    if adult_content == "Yes":
+        filtered_movies = filtered_movies[filtered_movies['adult'] == True]
+    elif adult_content == "No":
+        filtered_movies = filtered_movies[filtered_movies['adult'] == False]
 
     top_movies = filtered_movies.sort_values(by='vote_average', ascending=False).head(10)
     if not top_movies.empty:
@@ -68,8 +70,8 @@ if "search_title" not in st.session_state:
     st.session_state.search_title = ""
 if "search_overview" not in st.session_state:
     st.session_state.search_overview = ""
-if "search_company" not in st.session_state:
-    st.session_state.search_company = ""
+if "search_adult" not in st.session_state:
+    st.session_state.search_adult = "No"
 if "search_triggered" not in st.session_state:
     st.session_state.search_triggered = False
 
@@ -83,21 +85,21 @@ if st.session_state.page == "home":
     genre_input = st.text_input("Introduce el Género:", st.session_state.search_genre)
     title_input = st.text_input("Introduce el Título:", st.session_state.search_title)
     overview_input = st.text_input("Introduce el Overview:", st.session_state.search_overview)
-    company_input = st.text_input("Introduce la Compañía de Producción:", st.session_state.search_company)
+    adult_input = st.radio("Contenido para adultos:", ["No", "Yes"], index=0)
 
     # Botón para activar la búsqueda
     if st.button("Buscar"):
         st.session_state.search_genre = genre_input
         st.session_state.search_title = title_input
         st.session_state.search_overview = overview_input
-        st.session_state.search_company = company_input
+        st.session_state.search_adult = adult_input
         st.session_state.search_triggered = True
 
     # Solo realizar la búsqueda si se ha presionado el botón "Buscar"
     if st.session_state.search_triggered:
         query = f"SELECT * FROM {table}"
         df = fetch_data(query)
-        top_movies = filter_top_movies(df, st.session_state.search_genre, st.session_state.search_title, st.session_state.search_overview, st.session_state.search_company)
+        top_movies = filter_top_movies(df, st.session_state.search_genre, st.session_state.search_title, st.session_state.search_overview, st.session_state.search_adult)
 
         if not top_movies.empty:
             cols_per_row = 5
@@ -116,7 +118,7 @@ if st.session_state.page == "home":
         else:
             st.warning("No se encontraron resultados para los criterios ingresados.")
     else:
-        st.info("Introduce un género, título, overview o compañía y presiona 'Buscar' para ver los resultados.")
+        st.info("Introduce un género, título, overview o selecciona el contenido para adultos y presiona 'Buscar' para ver los resultados.")
 
 # =================== Página de Detalles ===================
 elif st.session_state.page == "details":
