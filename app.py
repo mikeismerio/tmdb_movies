@@ -28,13 +28,13 @@ def fetch_filtered_data(genre, title, overview, production_company, filter_adult
     filters = []
 
     if genre:
-        filters.append(f"genres LIKE '%{genre}%'")
+        filters.append(f"LOWER(genres) LIKE '%{genre.lower()}%'")
     if title:
-        filters.append(f"title LIKE '%{title}%'")
+        filters.append(f"LOWER(title) LIKE '%{title.lower()}%'")
     if overview:
-        filters.append(f"overview LIKE '%{overview}%'")
+        filters.append(f"LOWER(overview) LIKE '%{overview.lower()}%'")
     if production_company:
-        filters.append(f"production_companies LIKE '%{production_company}%'")
+        filters.append(f"LOWER(production_companies) LIKE '%{production_company.lower()}%'")
     if filter_adults:
         filters.append("adult = 1")
 
