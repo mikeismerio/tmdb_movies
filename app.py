@@ -80,9 +80,6 @@ def navigate(page, movie=None):
 
 # =================== Página Principal ===================
 if st.session_state.page == "home":
-    query = f"SELECT * FROM {table}"
-    df = fetch_data(query)
-
     genre_input = st.text_input("Introduce el Género:", st.session_state.search_genre)
     title_input = st.text_input("Introduce el Título:", st.session_state.search_title)
     overview_input = st.text_input("Introduce el Overview:", st.session_state.search_overview)
@@ -98,6 +95,8 @@ if st.session_state.page == "home":
 
     # Solo realizar la búsqueda si se ha presionado el botón "Buscar"
     if st.session_state.search_triggered:
+        query = f"SELECT * FROM {table}"
+        df = fetch_data(query)
         top_movies = filter_top_movies(df, st.session_state.search_genre, st.session_state.search_title, st.session_state.search_overview, st.session_state.search_company)
 
         if not top_movies.empty:
