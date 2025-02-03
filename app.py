@@ -38,8 +38,8 @@ def fetch_data(query):
         return pd.DataFrame()
 
 @st.cache_data
-def filter_top_movies(df, genre, title, overview, production_company):
-    """Filtra y ordena las 10 mejores películas según el género, título, sinopsis y productora"""
+def filter_top_movies(df, genre, title, overview, production_company, filter_adults):
+    """Filtra y ordena las 10 mejores películas según los criterios dados"""
     filtered_movies = df.copy()
     
     if genre:
@@ -50,6 +50,8 @@ def filter_top_movies(df, genre, title, overview, production_company):
         filtered_movies = filtered_movies[filtered_movies['overview'].str.contains(overview, case=False, na=False)]
     if production_company:
         filtered_movies = filtered_movies[filtered_movies['production_companies'].str.contains(production_company, case=False, na=False)]
+    if filter_adults:
+        filtered_movies = filtered_movies[filtered_movies['adult'] == True]
     
     top_movies = filtered_movies.sort_values(by='vote_average', ascending=False).head(10)
     if not top_movies.empty:
@@ -87,6 +89,7 @@ if st.session_state.page == "home":
     title_input = st.text_input("Introduce el Título:", st.session_state.search_title)
     overview_input = st.text_input("Introduce la Sinopsis/Resumen:", st.session_state.search_overview)
     production_company_input = st.text_input("Introduce la Productora:", st.session_state.search_production_company)
+    filter_adults = st.checkbox("Incluir contenido para adultos")
 
     # Botón para activar la búsqueda
     if st.button("Buscar"):
@@ -98,7 +101,14 @@ if st.session_state.page == "home":
 
     # Solo realizar la búsqueda si se ha presionado el botón "Buscar"
     if st.session_state.search_triggered:
-        top_movies = filter_top_movies(df, st.session_state.search_genre, st.session_state.search_title, st.session_state.search_overview, st.session_state.search_production_company)
+        top_movies = filter_top_movies(
+            df,
+            st.session_state.search_genre,
+            st.session_state.search_title,
+            st.session_state.search_overview,
+            st.session_state.search_production_company,
+            filter_adults
+        )
 
         if not top_movies.empty:
             cols_per_row = 5
