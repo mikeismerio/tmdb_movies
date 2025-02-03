@@ -62,8 +62,9 @@ if "page" not in st.session_state:
 
 def navigate(page, movie=None):
     st.session_state.page = page
-    st.session_state.selected_movie = movie
-    st.rerun()
+    if movie is not None:
+        st.session_state.selected_movie = movie
+    st.experimental_rerun()
 
 # =================== Página Principal ===================
 if st.session_state.page == "home":
@@ -92,8 +93,12 @@ if st.session_state.page == "home":
                     release_year = str(row['release_date'])[:4] if pd.notna(row['release_date']) else "N/A"
                     
                     button_label = f"{row['title']} ({release_year})"
+                    
+                    # Convertimos la fila a un diccionario para evitar problemas al pasarla a session_state
+                    movie_data = row.to_dict()
+                    
                     if st.button(button_label, key=f"details_{index}"):
-                        navigate("details", row.to_dict())
+                        navigate("details", movie_data)
         else:
             st.warning("No se encontraron resultados para los criterios ingresados.")
 
