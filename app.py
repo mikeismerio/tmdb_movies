@@ -58,13 +58,12 @@ def fetch_filtered_data(genre, title, overview, production_company, filter_adult
 # =================== Control de Navegación ===================
 if "page" not in st.session_state:
     st.session_state.page = "home"
+if "selected_movie" not in st.session_state:
     st.session_state.selected_movie = None
 
 def navigate(page, movie=None):
     st.session_state.page = page
-    if movie is not None:
-        st.session_state.selected_movie = movie
-    st.experimental_rerun()
+    st.session_state.selected_movie = movie
 
 # =================== Página Principal ===================
 if st.session_state.page == "home":
@@ -139,9 +138,5 @@ elif st.session_state.page == "details":
             st.markdown(movie['overview'] if movie.get('overview') else "No disponible")
 
         # =================== Botón para volver a la lista ===================
-        if st.button("Volver a la lista"):
-            navigate("home")
-    else:
-        st.warning("No se ha seleccionado ninguna película.")
         if st.button("Volver a la lista"):
             navigate("home")
