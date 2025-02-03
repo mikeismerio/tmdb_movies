@@ -23,24 +23,8 @@ connection_string = (
 )
 
 @st.cache_data
-def fetch_filtered_data(genre, title, overview, filter_adults):
-    """Construye una consulta SQL dinámica y devuelve un DataFrame filtrado."""
-    filters = []
-
-    if genre:
-        filters.append(f"LOWER(genres) LIKE '%{genre.lower()}%'")
-    if title:
-        filters.append(f"LOWER(title) LIKE '%{title.lower()}%'")
-    if overview:
-        filters.append(f"LOWER(overview) LIKE '%{overview.lower()}%'")
-    if filter_adults:
-        filters.append("adult = 1")
-
-    query = f"SELECT TOP 10 * FROM {table}"
-    if filters:
-        query += " WHERE " + " AND ".join(filters)
-    query += " ORDER BY vote_average DESC"
-
+def fetch_data(query):
+    """Ejecuta una consulta SQL y devuelve un DataFrame"""
     try:
         engine = sa.create_engine(
             connection_string,
@@ -53,107 +37,126 @@ def fetch_filtered_data(genre, title, overview, filter_adults):
         st.error(f"Error al ejecutar la consulta: {e}")
         return pd.DataFrame()
 
-# =================== Inicialización del Estado ===================
+@st.cache_data
+def filter_top_movies(df, genre, title, overview, filter_adults):
+    """Filtra y ordena las 10 mejores películas según el género, título, overview y filtro de adultos"""
+    filtered_movies = df.copy()
+    
+    if genre:
+        filtered_movies = filtered_movies[filtered_movies['genres'].str.contains(genre, case=False, na=False)]
+    if title:
+        filtered_movies = filtered_movies[filtered_movies['title'].str.contains(title, case=False, na=False)]
+    if overview:
+        filtered_movies = filtered_movies[filtered_movies['overview'].str.contains(overview, case=False, na=False)]
+    if filter_adults:
+        filtered_movies = filtered_movies[filtered_movies['adult'] == 1]
+    
+    top_movies = filtered_movies.sort_values(by='vote_average', ascending=False).head(10)
+    if not top_movies.empty:
+        base_url = "https://image.tmdb.org/t/p/w500"
+        top_movies['image_url'] = base_url + top_movies['poster_path']
+        return top_movies[top_movies['image_url'].notna()]
+    return pd.DataFrame()
+
+# =================== Control de Navegación ===================
 if "page" not in st.session_state:
     st.session_state.page = "home"
-if "selected_movie" not in st.session_state:
     st.session_state.selected_movie = None
-if "search_filters" not in st.session_state:
-    st.session_state.search_filters = {
-        "genre": "",
-        "title": "",
-        "overview": "",
-        "filter_adults": False,
-    }
+if "search_genre" not in st.session_state:
+    st.session_state.search_genre = ""
+if "search_title" not in st.session_state:
+    st.session_state.search_title = ""
+if "search_overview" not in st.session_state:
+    st.session_state.search_overview = ""
+if "search_filter_adults" not in st.session_state:
+    st.session_state.search_filter_adults = False
+if "search_triggered" not in st.session_state:
+    st.session_state.search_triggered = False
 
-# =================== Función de Navegación ===================
 def navigate(page, movie=None):
     st.session_state.page = page
-    if movie:
-        st.session_state.selected_movie = movie
+    st.session_state.selected_movie = movie
+    st.rerun()
 
 # =================== Página Principal ===================
 if st.session_state.page == "home":
-    st.markdown("### Búsqueda de Películas")
+    query = f"SELECT * FROM {table}"
+    df = fetch_data(query)
 
-    # Recuperar los filtros de búsqueda del estado
-    genre_input = st.text_input("Introduce el Género:", value=st.session_state.search_filters["genre"])
-    title_input = st.text_input("Introduce el Título:", value=st.session_state.search_filters["title"])
-    overview_input = st.text_input("Introduce la Sinopsis/Resumen:", value=st.session_state.search_filters["overview"])
-    filter_adults = st.checkbox("Incluir contenido para adultos", value=st.session_state.search_filters["filter_adults"])
+    genre_input = st.text_input("Introduce el Género:", st.session_state.search_genre)
+    title_input = st.text_input("Introduce el Título:", st.session_state.search_title)
+    overview_input = st.text_input("Introduce el Overview:", st.session_state.search_overview)
+    filter_adults = st.checkbox("Incluir contenido para adultos", st.session_state.search_filter_adults)
 
     # Botón para activar la búsqueda
     if st.button("Buscar"):
-        # Guardar los filtros de búsqueda en el estado
-        st.session_state.search_filters = {
-            "genre": genre_input,
-            "title": title_input,
-            "overview": overview_input,
-            "filter_adults": filter_adults,
-        }
+        st.session_state.search_genre = genre_input
+        st.session_state.search_title = title_input
+        st.session_state.search_overview = overview_input
+        st.session_state.search_filter_adults = filter_adults
+        st.session_state.search_triggered = True
 
-        # Ejecutar la consulta SQL
-        df = fetch_filtered_data(genre_input, title_input, overview_input, filter_adults)
+    # Solo realizar la búsqueda si se ha presionado el botón "Buscar"
+    if st.session_state.search_triggered:
+        top_movies = filter_top_movies(df, st.session_state.search_genre, st.session_state.search_title, st.session_state.search_overview, st.session_state.search_filter_adults)
 
-        # Mostrar los resultados
-        if not df.empty:
-            st.markdown("### Resultados de la Búsqueda:")
+        if not top_movies.empty:
             cols_per_row = 5
             cols = st.columns(cols_per_row)
 
-            for index, row in df.iterrows():
+            for index, row in enumerate(top_movies.itertuples()):
                 with cols[index % cols_per_row]:
-                    image_url = f"https://image.tmdb.org/t/p/w500{row['poster_path']}" if pd.notna(row['poster_path']) else None
-                    if image_url:
-                        st.image(image_url, use_container_width=True)
-                    release_year = str(row['release_date'])[:4] if pd.notna(row['release_date']) else "N/A"
+                    st.image(row.image_url, use_container_width=True)
                     
-                    button_label = f"{row['title']} ({release_year})"
+                    # ✅ Corrección: Evitar error si release_date es None o no es un string
+                    release_year = str(row.release_date)[:4] if hasattr(row, 'release_date') and row.release_date else "N/A"
                     
-                    # Convertimos la fila a un diccionario para evitar problemas al pasarla a session_state
-                    movie_data = row.to_dict()
-                    
-                    if st.button(button_label, key=f"details_{index}"):
-                        navigate("details", movie_data)
+                    button_label = f"{row.title} ({release_year})"
+                    if st.button(button_label, key=row.Index):
+                        navigate("details", row)
         else:
             st.warning("No se encontraron resultados para los criterios ingresados.")
+    else:
+        st.info("Introduce un género, título, overview y presiona 'Buscar' para ver los resultados.")
 
 # =================== Página de Detalles ===================
 elif st.session_state.page == "details":
-    movie = st.session_state.selected_movie
-
-    if movie:
+    if st.session_state.selected_movie:
+        movie = st.session_state.selected_movie
         base_url = "https://image.tmdb.org/t/p/w500"
-        
+
         # =================== Mostrar Imagen de Fondo ===================
-        backdrop_path = movie.get('backdrop_path')
-        if backdrop_path:
-            st.image(base_url + backdrop_path, use_column_width=True)
+        if hasattr(movie, 'backdrop_path') and movie.backdrop_path:
+            st.image(base_url + movie.backdrop_path, use_column_width=True)
 
         # =================== Diseño en Dos Columnas ===================
         col1, col2 = st.columns([1, 2])  # La segunda columna es más grande para los detalles
 
         with col1:
-            poster_path = movie.get('poster_path')
-            if poster_path:
-                st.image(base_url + poster_path, width=250)  # Imagen más pequeña
+            if hasattr(movie, 'poster_path') and movie.poster_path:
+                st.image(base_url + movie.poster_path, width=250)  # Imagen más pequeña
             else:
                 st.warning("No hay imagen disponible.")
 
         with col2:
-            st.markdown(f"# {movie['title']} ({str(movie['release_date'])[:4] if movie.get('release_date') else 'N/A'})")
-            st.markdown(f"**Rating:** {movie['vote_average']:.2f} ⭐ ({movie['vote_count']} votos)")
-            st.markdown(f"**Idioma original:** {movie['original_language'].upper() if movie.get('original_language') else 'N/A'}")
-            st.markdown(f"**Duración:** {movie['runtime'] if movie.get('runtime') else 'N/A'} minutos")
-            st.markdown(f"**Popularidad:** {movie['popularity'] if movie.get('popularity') else 'N/A'}")
-            st.markdown(f"**Estado:** {movie['status'] if movie.get('status') else 'N/A'}")
-            st.markdown(f"**Presupuesto:** ${movie['budget']:,.0f}" if movie.get('budget') else "No disponible")
-            st.markdown(f"**Géneros:** {movie['genres'] if movie.get('genres') else 'No disponible'}")
+            st.markdown(f"# {movie.title} ({str(movie.release_date)[:4] if hasattr(movie, 'release_date') and movie.release_date else 'N/A'})")
+            st.markdown(f"**Rating:** {movie.vote_average:.2f} ⭐ ({movie.vote_count} votos)")
+            st.markdown(f"**Idioma original:** {movie.original_language.upper() if hasattr(movie, 'original_language') else 'N/A'}")
+            st.markdown(f"**Duración:** {movie.runtime if hasattr(movie, 'runtime') else 'N/A'} minutos")
+            st.markdown(f"**Popularidad:** {movie.popularity if hasattr(movie, 'popularity') else 'N/A'}")
+            st.markdown(f"**Estado:** {movie.status if hasattr(movie, 'status') else 'N/A'}")
+            st.markdown(f"**Presupuesto:** ${movie.budget:,.0f}" if hasattr(movie, 'budget') else "No disponible")
+            st.markdown(f"**Géneros:** {movie.genres if hasattr(movie, 'genres') else 'No disponible'}")
 
             # =================== Sinopsis ===================
             st.markdown(f"### Descripción")
-            st.markdown(movie['overview'] if movie.get('overview') else "No disponible")
+            st.markdown(movie.overview if hasattr(movie, 'overview') and movie.overview else "No disponible")
 
         # =================== Botón para volver a la lista ===================
+        if st.button("Volver a la lista"):
+            navigate("home")
+
+    else:
+        st.warning("No se ha seleccionado ninguna película.")
         if st.button("Volver a la lista"):
             navigate("home")
