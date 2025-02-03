@@ -9,7 +9,7 @@ st.set_page_config(page_title="Inicio", page_icon="🏠", layout="wide")
 # =================== Configuración de Base de Datos ===================
 server = "nwn7f7ze6vtuxen5age454nhca-colrz4odas5unhn7cagatohexq.datawarehouse.fabric.microsoft.com"
 database = "TMDB"
-driver = "ODBC Driver 17 for SQL Server"
+driver = "ODBC Driver 17 for SQL Server"  # ✅ Corregido para usar ODBC 17
 table = "tmdb_movies_clean"
 
 # Obtener credenciales desde variables de entorno (Streamlit Secrets)
@@ -38,19 +38,19 @@ def fetch_data(query):
         return pd.DataFrame()
 
 @st.cache_data
-def filter_top_movies(df, genre, title, overview, filter_adults):
-    """Filtra y ordena las 10 mejores películas según el género, título, overview y filtro de adultos"""
+def filter_top_movies(df, genre, title, overview, company):
+    """Filtra y ordena las 10 mejores películas según el género, título, overview y compañía de producción"""
     filtered_movies = df.copy()
-    
+
     if genre:
         filtered_movies = filtered_movies[filtered_movies['genres'].str.contains(genre, case=False, na=False)]
     if title:
         filtered_movies = filtered_movies[filtered_movies['title'].str.contains(title, case=False, na=False)]
     if overview:
         filtered_movies = filtered_movies[filtered_movies['overview'].str.contains(overview, case=False, na=False)]
-    if filter_adults:
-        filtered_movies = filtered_movies[filtered_movies['adult'] == 1]
-    
+    if company:
+        filtered_movies = filtered_movies[filtered_movies['production_companies'].str.contains(company, case=False, na=False)]
+
     top_movies = filtered_movies.sort_values(by='vote_average', ascending=False).head(10)
     if not top_movies.empty:
         base_url = "https://image.tmdb.org/t/p/w500"
@@ -68,8 +68,8 @@ if "search_title" not in st.session_state:
     st.session_state.search_title = ""
 if "search_overview" not in st.session_state:
     st.session_state.search_overview = ""
-if "search_filter_adults" not in st.session_state:
-    st.session_state.search_filter_adults = False
+if "search_company" not in st.session_state:
+    st.session_state.search_company = ""
 if "search_triggered" not in st.session_state:
     st.session_state.search_triggered = False
 
@@ -86,19 +86,19 @@ if st.session_state.page == "home":
     genre_input = st.text_input("Introduce el Género:", st.session_state.search_genre)
     title_input = st.text_input("Introduce el Título:", st.session_state.search_title)
     overview_input = st.text_input("Introduce el Overview:", st.session_state.search_overview)
-    filter_adults = st.checkbox("Incluir contenido para adultos", st.session_state.search_filter_adults)
+    company_input = st.text_input("Introduce la Compañía de Producción:", st.session_state.search_company)
 
     # Botón para activar la búsqueda
     if st.button("Buscar"):
         st.session_state.search_genre = genre_input
         st.session_state.search_title = title_input
         st.session_state.search_overview = overview_input
-        st.session_state.search_filter_adults = filter_adults
+        st.session_state.search_company = company_input
         st.session_state.search_triggered = True
 
     # Solo realizar la búsqueda si se ha presionado el botón "Buscar"
     if st.session_state.search_triggered:
-        top_movies = filter_top_movies(df, st.session_state.search_genre, st.session_state.search_title, st.session_state.search_overview, st.session_state.search_filter_adults)
+        top_movies = filter_top_movies(df, st.session_state.search_genre, st.session_state.search_title, st.session_state.search_overview, st.session_state.search_company)
 
         if not top_movies.empty:
             cols_per_row = 5
@@ -109,7 +109,7 @@ if st.session_state.page == "home":
                     st.image(row.image_url, use_container_width=True)
                     
                     # ✅ Corrección: Evitar error si release_date es None o no es un string
-                    release_year = str(row.release_date)[:4] if hasattr(row, 'release_date') and row.release_date else "N/A"
+                    release_year = str(row.release_date)[:4] if row.release_date else "N/A"
                     
                     button_label = f"{row.title} ({release_year})"
                     if st.button(button_label, key=row.Index):
@@ -117,7 +117,7 @@ if st.session_state.page == "home":
         else:
             st.warning("No se encontraron resultados para los criterios ingresados.")
     else:
-        st.info("Introduce un género, título, overview y presiona 'Buscar' para ver los resultados.")
+        st.info("Introduce un género, título, overview o compañía y presiona 'Buscar' para ver los resultados.")
 
 # =================== Página de Detalles ===================
 elif st.session_state.page == "details":
@@ -139,23 +139,31 @@ elif st.session_state.page == "details":
                 st.warning("No hay imagen disponible.")
 
         with col2:
-            st.markdown(f"# {movie.title} ({str(movie.release_date)[:4] if hasattr(movie, 'release_date') and movie.release_date else 'N/A'})")
+            st.markdown(f"# {movie.title} ({str(movie.release_date)[:4] if movie.release_date else 'N/A'})")
             st.markdown(f"**Rating:** {movie.vote_average:.2f} ⭐ ({movie.vote_count} votos)")
-            st.markdown(f"**Idioma original:** {movie.original_language.upper() if hasattr(movie, 'original_language') else 'N/A'}")
-            st.markdown(f"**Duración:** {movie.runtime if hasattr(movie, 'runtime') else 'N/A'} minutos")
-            st.markdown(f"**Popularidad:** {movie.popularity if hasattr(movie, 'popularity') else 'N/A'}")
-            st.markdown(f"**Estado:** {movie.status if hasattr(movie, 'status') else 'N/A'}")
-            st.markdown(f"**Presupuesto:** ${movie.budget:,.0f}" if hasattr(movie, 'budget') else "No disponible")
-            st.markdown(f"**Géneros:** {movie.genres if hasattr(movie, 'genres') else 'No disponible'}")
+            st.markdown(f"**Idioma original:** {movie.original_language.upper() if movie.original_language else 'N/A'}")
+            st.markdown(f"**Duración:** {movie.runtime if movie.runtime else 'N/A'} minutos")
+            st.markdown(f"**Presupuesto:** ${movie.budget:,}")
+            st.markdown(f"**Ingresos:** ${movie.revenue:,}")
+            st.markdown(f"**Estado:** {movie.status if movie.status else 'N/A'}")
+            st.markdown(f"**Para adultos:** {'Sí' if movie.adult else 'No'}")
+            st.markdown(f"**Géneros:** {movie.genres if movie.genres else 'No disponible'}")
+            st.markdown(f"**Compañías de producción:** {movie.production_companies if movie.production_companies else 'No disponible'}")
 
             # =================== Sinopsis ===================
             st.markdown(f"### Descripción")
-            st.markdown(movie.overview if hasattr(movie, 'overview') and movie.overview else "No disponible")
+            st.markdown(movie.overview if movie.overview else "No disponible")
+
+        # =================== Mostrar Información Adicional ===================
+        st.markdown("---")  # Línea divisoria para separar el contenido
+
+        # =================== Mostrar el tagline si está disponible ===================
+        if movie.tagline:
+            st.markdown(f"**Tagline:** *{movie.tagline}*")
 
         # =================== Botón para volver a la lista ===================
         if st.button("Volver a la lista"):
             navigate("home")
-
     else:
         st.warning("No se ha seleccionado ninguna película.")
         if st.button("Volver a la lista"):
