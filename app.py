@@ -38,10 +38,10 @@ def fetch_filtered_data(genre, title, overview, production_company, filter_adult
     if filter_adults:
         filters.append("adult = 1")
 
-    query = f"SELECT * FROM {table}"
+    query = f"SELECT TOP 10 * FROM {table}"
     if filters:
         query += " WHERE " + " AND ".join(filters)
-    query += " ORDER BY vote_average DESC LIMIT 10"
+    query += " ORDER BY vote_average DESC"
 
     try:
         engine = sa.create_engine(
