@@ -23,7 +23,7 @@ connection_string = (
 )
 
 @st.cache_data
-def fetch_filtered_data(genre, title, overview, production_company, filter_adults):
+def fetch_filtered_data(genre, title, overview, filter_adults):
     """Construye una consulta SQL dinámica y devuelve un DataFrame filtrado."""
     filters = []
 
@@ -33,8 +33,6 @@ def fetch_filtered_data(genre, title, overview, production_company, filter_adult
         filters.append(f"LOWER(title) LIKE '%{title.lower()}%'")
     if overview:
         filters.append(f"LOWER(overview) LIKE '%{overview.lower()}%'")
-    if production_company:
-        filters.append(f"LOWER(production_companies) LIKE '%{production_company.lower()}%'")
     if filter_adults:
         filters.append("adult = 1")
 
@@ -65,7 +63,6 @@ if "search_filters" not in st.session_state:
         "genre": "",
         "title": "",
         "overview": "",
-        "production_company": "",
         "filter_adults": False,
     }
 
@@ -83,7 +80,6 @@ if st.session_state.page == "home":
     genre_input = st.text_input("Introduce el Género:", value=st.session_state.search_filters["genre"])
     title_input = st.text_input("Introduce el Título:", value=st.session_state.search_filters["title"])
     overview_input = st.text_input("Introduce la Sinopsis/Resumen:", value=st.session_state.search_filters["overview"])
-    production_company_input = st.text_input("Introduce la Productora:", value=st.session_state.search_filters["production_company"])
     filter_adults = st.checkbox("Incluir contenido para adultos", value=st.session_state.search_filters["filter_adults"])
 
     # Botón para activar la búsqueda
@@ -93,12 +89,11 @@ if st.session_state.page == "home":
             "genre": genre_input,
             "title": title_input,
             "overview": overview_input,
-            "production_company": production_company_input,
             "filter_adults": filter_adults,
         }
 
         # Ejecutar la consulta SQL
-        df = fetch_filtered_data(genre_input, title_input, overview_input, production_company_input, filter_adults)
+        df = fetch_filtered_data(genre_input, title_input, overview_input, filter_adults)
 
         # Mostrar los resultados
         if not df.empty:
